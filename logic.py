@@ -1,218 +1,69 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[codz]
-*$py.class
+import streamlit as st
+import random
 
-# C extensions
-*.so
+class DavinciCodeLogic:
+    @staticmethod
+    def init_game():
+        """게임 초기 데이터 생성 및 세션 저장"""
+        if 'deck' not in st.session_state:
+            # 타일 생성: 숫자 0-11 (흑/백) + 조커(J)
+            deck = []
+            for color in ['B', 'W']:
+                for i in range(12):
+                    deck.append({'color': color, 'value': i, 'is_joker': False, 'revealed': False})
+                deck.append({'color': color, 'value': 'J', 'is_joker': True, 'revealed': False})
+            
+            random.shuffle(deck)
+            st.session_state.deck = deck
+            st.session_state.p1_hand = []
+            st.session_state.p2_hand = []
+            st.session_state.turn = 'P1'
+            st.session_state.game_over = False
+            st.session_state.last_drawn = None
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+            # 초기 4장씩 분배
+            for _ in range(4):
+                st.session_state.p1_hand.append(st.session_state.deck.pop())
+                st.session_state.p2_hand.append(st.session_state.deck.pop())
+            
+            DavinciCodeLogic.sort_tiles('p1_hand')
+            DavinciCodeLogic.sort_tiles('p2_hand')
 
-# PyInstaller
-#   Usually these files are written by a python script from a template
-#   before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+    @staticmethod
+    def sort_tiles(player_hand_key):
+        """다빈치 코드 정렬 규칙 적용"""
+        hand = st.session_state[player_hand_key]
+        # 일반 숫자는 숫자순 -> 같은 숫자면 Black 우선
+        # 조커(J)는 정렬 로직에서 예외 처리가 필요하므로 일단 맨 뒤로 보냄
+        # (UI에서 조커 위치 이동 기능을 위해 index를 별도로 관리하는 것이 좋음)
+        
+        numbers = [t for t in hand if not t['is_joker']]
+        jokers = [t for t in hand if t['is_joker']]
+        
+        numbers.sort(key=lambda x: (x['value'], 0 if x['color'] == 'B' else 1))
+        st.session_state[player_hand_key] = numbers + jokers
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+    @staticmethod
+    def guess(target_player, tile_idx, guessed_value):
+        """추리 로직: 성공 시 True, 실패 시 False 반환"""
+        target_hand = st.session_state[f'{target_player.lower()}_hand']
+        target_tile = target_hand[tile_idx]
+        
+        if str(target_tile['value']) == str(guessed_value):
+            target_tile['revealed'] = True
+            return True
+        else:
+            # 실패 시 페널티: 이번 턴에 뽑은 타일 공개
+            curr_player = st.session_state.turn.lower()
+            if st.session_state.last_drawn:
+                for t in st.session_state[f'{curr_player}_hand']:
+                    if t == st.session_state.last_drawn:
+                        t['revealed'] = True
+            return False
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-.hypothesis/
-.pytest_cache/
-cover/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-# Pipfile.lock
-
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-# uv.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-# poetry.lock
-# poetry.toml
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
-#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
-# pdm.lock
-# pdm.toml
-.pdm-python
-.pdm-build/
-
-# pixi
-#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
-# pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
-.pixi
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# Redis
-*.rdb
-*.aof
-*.pid
-
-# RabbitMQ
-mnesia/
-rabbitmq/
-rabbitmq-data/
-
-# ActiveMQ
-activemq-data/
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#   JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#   and can be added to the global gitignore or merged into this file.  For a more nuclear
-#   option (not recommended) you can uncomment the following to ignore the entire idea folder.
-# .idea/
-
-# Abstra
-#   Abstra is an AI-powered process automation framework.
-#   Ignore directories containing user credentials, local state, and settings.
-#   Learn more at https://abstra.io/docs
-.abstra/
-
-# Visual Studio Code
-#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
-#   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#   and can be added to the global gitignore or merged into this file. However, if you prefer, 
-#   you could uncomment the following to ignore the entire vscode folder
-# .vscode/
-# Temporary file for partial code execution
-tempCodeRunnerFile.py
-
-# Ruff stuff:
-.ruff_cache/
-
-# PyPI configuration file
-.pypirc
-
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
-
-# Streamlit
-.streamlit/secrets.toml
+    @staticmethod
+    def move_joker(player, from_idx, to_idx):
+        """조커의 위치를 수동으로 변경 (다빈치 코드 핵심 규칙)"""
+        hand = st.session_state[f'{player.lower()}_hand']
+        tile = hand.pop(from_idx)
+        hand.insert(to_idx, tile)
